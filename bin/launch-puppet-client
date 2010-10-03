@@ -1,0 +1,109 @@
+#!/bin/bash
+
+REQUEST_TIMEOUT=30
+TOOL_OPTS="-K $EC2_PRIVATE_KEY -C $EC2_CERT --request-timeout $REQUEST_TIMEOUT"
+
+if [ -z $1 ]; then
+    echo "cluster name required! (STAGING or PRODUCTION or TEST)"
+    exit 1
+fi
+
+if [ -z "$EC2_ROOT_SSH_KEY" ]; then 
+    echo "EC2_ROOT_SSH_KEY not set."
+    exit 1
+fi
+
+AUTOSIGN=true
+RUN_INTERVAL=10
+INSTANCE_TYPE="m1.large"
+AMI_IMAGE="ami-bbfe19d2"
+KEY_NAME="root"
+bin=`dirname $0`
+USER_DATA_FILE=$bin/puppetclient-init-remote
+PUPPET_MASTER=''
+CLUSTER=''
+CLIENT_PREFIX="puppetclient"
+MASTER_PREFIX="puppetmaster"
+# staging = '-staging' 
+# production = '' 
+# test = '-test'
+case "$1" in
+    STAGING)
+	CLUSTER='staging'
+	PUPPET_MASTER="$MASTER_PREFIX-$CLUSTER"
+	PUPPET_CLIENT="$CLIENT_PREFIX-$CLUSTER"
+	RUN_INTERVAL=10
+	;;
+    PRODUCTION)
+	CLUSTER=''
+	PUPPET_MASTER="$MASTER_PREFIX-$CLUSTER"
+	PUPPET_CLIENT="$CLIENT_PREFIX-$CLUSTER"
+	RUN_INTERVAL=300
+	;;
+    TEST)
+	CLUSTER='-test'
+	PUPPET_MASTER="$MASTER_PREFIX$-CLUSTER"
+	PUPPET_CLIENT="$CLIENT_PREFIX$-CLUSTER"
+	RUN_INTERVAL=10
+	;;
+    *)
+	echo "Valid cluster name required! (STAGING or PRODUCTION or TEST)"
+	exit 1
+	;;
+esac
+
+#echo -n "Checking for Security Group: '$PUPPET_MASTER' ..."
+#echo "TODO: IMPLEMENT!!!"
+
+echo -n "Checking for existing Puppet Master ... "
+MASTER_EC2_INTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS | awk '"RESERVATION" == $1 && "'$PUPPET_MASTER'" == $4, "RESERVATION" == $1 && "'$PUPPET_MASTER'" != $4'`
+MASTER_EC2_EXTERNAL_HOST=`echo "$MASTER_EC2_INTERNAL_HOST" | awk '"INSTANCE" == $1 && "running" == $6 {print $4}'`
+if [ -z "$MASTER_EC2_EXTERNAL_HOST" ]; then
+    echo "Puppet Master Not Running. Must start Puppet Master first."
+    exit 1
+fi
+MASTER_EC2_INTERNAL_HOST=`echo "$MASTER_EC2_INTERNAL_HOST" | awk '"INSTANCE" == $1 && "running" == $6 {print $5}'`
+
+echo "Puppet Master in '$PUPPET_MASTER' running. External Host Name = $MASTER_EC2_EXTERNAL_HOST"
+sed -e "s|%PUPPET_MASTER_INTERNAL_HOST%|$MASTER_EC2_INTERNAL_HOST|" \
+    -e "s|%CONF_BRANCH%|$CLUSTER|" \
+    -e "s|%RUN_INTERVAL%|$RUN_INTERVAL|" \
+    $bin/$USER_DATA_FILE > $bin/$USER_DATA_FILE.client
+INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $bin/$USER_DATA_FILE.client -t $INSTANCE_TYPE -g $PUPPET_CLIENT | grep INSTANCE | awk '{print $2}'`
+#-g mgmt-staging
+echo "Waiting for instance $INSTANCE to start"
+while true; do
+    printf "."
+    CLIENT_EC2_EXTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS $INSTANCE | grep running | awk '{print $4}'`
+    if [ ! -z $CLIENT_EC2_EXTERNAL_HOST ]; then
+	echo " Started $PUPPET_CLIENT as $CLIENT_EC2_EXTERNAL_HOST"
+	break;
+    fi
+    sleep 1
+done
+rm -f $bin/$USER_DATA_FILE.client
+CLIENT_EC2_INTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS $INSTANCE | grep running | awk '{print $5}'`
+
+if [ -z $AUTOSIGN ]; then
+    exit 0
+fi
+echo "Logging into Puppet Master..."
+echo "Matching Client Internal Hostname: $CLIENT_EC2_INTERNAL_HOST to Cert Signing Request ..."
+while true; do
+    #printf "."
+    PUPPET_CLIENTS_WAITING=`ssh -i $EC2_ROOT_SSH_KEY root@$MASTER_EC2_EXTERNAL_HOST "puppetca --list"`
+    if [ ! -z "$PUPPET_CLIENTS_WAITING" ]; then
+	echo "Puppet Clients Waiting: $PUPPET_CLIENTS_WAITING"
+	MATCH_CLIENT=`echo "$PUPPET_CLIENTS_WAITING" | awk '{for (i=0;i<NF;i++) if ($i == "'$CLIENT_EC2_INTERNAL_HOST'"){print $i;}}'`
+	#DEBUG
+	#echo "MATCH_CLIENT=$MATCH_CLIENT"
+	#echo "$PUPPET_CLIENTS_WAITING" | awk '{for (i=0;i<NF;i++) {print $i;}}'
+	
+	if [ ! -z $MATCH_CLIENT ]; then
+	    echo "Matched: $MATCH_CLIENT"
+	    ssh -i $EC2_ROOT_SSH_KEY root@$MASTER_EC2_EXTERNAL_HOST "puppetca --sign $CLIENT_EC2_INTERNAL_HOST"
+	    break;
+	fi
+    fi
+    sleep 1
+done

@@ -1,0 +1,72 @@
+#!/bin/bash
+
+REQUEST_TIMEOUT=30
+TOOL_OPTS="-K $EC2_PRIVATE_KEY -C $EC2_CERT --request-timeout $REQUEST_TIMEOUT"
+
+if [ -z $1 ]; then
+    echo "cluster name required! (STAGING or PRODUCTION or TEST)"
+    exit 1
+fi
+
+INSTANCE_TYPE="m1.large"
+AMI_IMAGE="ami-bbfe19d2"
+KEY_NAME="root"
+bin=`dirname $0`
+USER_DATA_FILE=$bin/puppetmaster-init-remote
+PUPPET_MASTER=''
+CLUSTER=''
+# staging = '-staging' 
+# production = '' 
+# test = '-test'
+case "$1" in
+    STAGING)
+	CLUSTER='-staging'
+	PUPPET_MASTER="puppetmaster$CLUSTER"
+	;;
+    PRODUCTION)
+	CLUSTER=''
+	PUPPET_MASTER="puppetmaster$CLUSTER"
+	;;
+    TEST)
+	CLUSTER='-test'
+	PUPPET_MASTER="puppetmaster$CLUSTER"
+	;;
+    *)
+	CLUSTER=$1
+	PUPPET_MASTER=$CLUSTER
+	#echo "cluster name required! (STAGING or PRODUCTION or TEST)"
+	#exit 1
+	;;
+esac
+
+#echo -n "Checking for Security Group: '$PUPPET_MASTER' ..."
+#echo "TODO: IMPLEMENT!!!"
+
+echo -n "Checking for existing Puppet Master ... "
+MASTER_EC2_INTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS | awk '"RESERVATION" == $1 && "'$PUPPET_MASTER'" == $4, "RESERVATION" == $1 && "'$PUPPET_MASTER'" != $4'`
+
+MASTER_EC2_EXTERNAL_HOST=`echo "$MASTER_EC2_INTERNAL_HOST" | awk '"INSTANCE" == $1 && "running" == $6 {print $4}'`
+if [ ! -z "$MASTER_EC2_EXTERNAL_HOST" ]; then
+    echo "Master already running: $MASTER_EC2_EXTERNAL_HOST"
+    exit 1
+fi
+MASTER_EC2_INTERNAL_HOST=`echo "$MASTER_EC2_INTERNAL_HOST" | awk '"INSTANCE" == $1 && "running" == $6 {print $5}'`
+echo " None."
+echo "Starting a new master in Security Group: '$PUPPET_MASTER'"
+
+#sed -e "s|%PUPPET_MASTER_INTERNAL_HOST%|$MASTER_EC2_INTERNAL_HOST|" \
+#    $bin/$USER_DATA_FILE > $bin/$USER_DATA_FILE.master
+INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $bin/$USER_DATA_FILE -t $INSTANCE_TYPE -g $PUPPET_MASTER | grep INSTANCE | awk '{print $2}'`
+#-g mgmt-staging
+echo "Waiting for instance $INSTANCE to start"
+while true; do
+    printf "."
+    MASTER_EC2_EXTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS $INSTANCE | grep running | awk '{print $4}'`
+    #MASTER_EC2_INTERNAL_HOST=`ec2-describe-instances $TOOL_OPTS $INSTANCE | grep running | awk '{print $5}'`
+    if [ ! -z $MASTER_EC2_EXTERNAL_HOST ]; then
+	echo " Started Puppet Master in: '$PUPPET_MASTER' => $MASTER_EC2_EXTERNAL_HOST"
+	break;
+    fi
+    sleep 1
+done
+#rm -f $bin/$USER_DATA_FILE.master

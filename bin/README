@@ -1,0 +1,5 @@
+API
+
+launch-puppet-master <ami> <instance type>
+
+launch-puppet-client <ami> <instance type> <security group> <master internal dns name>

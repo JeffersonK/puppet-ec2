@@ -1,0 +1,63 @@
+#!/bin/bash
+set -x
+PUPPET_MASTER_INTERNAL_HOST=%PUPPET_MASTER_INTERNAL_HOST%
+RUN_INTERVAL=%RUN_INTERVAL%
+CONF_BRANCH=%CONF_BRANCH%
+#"staging"
+EXTRA_PACKAGES="emacs puppet git-core"
+
+echo "Updating Apt Repos"
+apt-get update && apt-get update -y
+echo "Installing Packages: $EXTRA_PACKAGES"
+apt-get install -y $EXTRA_PACKAGES
+
+echo "Installing SSH keys."
+mkdir -p /root/.ssh/
+cat > /root/.ssh/id_rsa <<EOF
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAviX1LdTAk8dt3CgLihlfwUE1csd3uCQGBoo0ApRa5OJVrNRt
+5cHWF8ypOra/+yX+MFd7Le1OaoNqDdm3WKntNs0CxMpuddMR8PIjTbyKF2tiAOqc
+JKA2vBblScDB68fvQA7hcjeQJr6xchTNVxzvNRygCLfW9FWqKDR4FHpk1nwWgFL8
+nuc6issEcHjyf1Y349fy57SlSjm2tDjv5SiVRa3rsPUaLtU8S3Kona9H0vXgxYgo
+7xaxu/C5P0re3JoDyhvbjQdAwWcEcZm7UZk+iLYwT2SPrtwdPto+Hrwzq+cK0+fY
+ZdUynscktrhAA0PHdRXf+KmLbbr4fMMfRLS6NwIBIwKCAQAw5TBq3u+w+MR6cLKC
+mM961kDxoQGHHzS/2mUlPBdfbWZ85irjTxnLmwbx1ziuS5kiX6NU8+D20VXJDBk0
+DnAyqb7iJWzceBqOaiZV0WVWerLNCSDWN9OPc5oLpphD8ZVK/IMdXr6q4JQHZG9Q
+6i7hxYg8wY8LoP/ec+RdCYek3aIFjWV5GFhTXr1LVlyn16aLiPMAl0PWGAdZodv0
+9UEPwiGtWw4FLX+/xVHxx12deJKovs3BvDsUVCpcMbXWQdPQThzj0PfvOTRyDt97
+Nsc4qVk8Fb9lKVRUzYPZRHB4wFFbZgDqofImHalzJDkFDf3B2o+97zCJx/qo+ZLe
+pcOzAoGBAPqre6fZTGZtMrtcqscGFhlUwKdOZHKZvjs73iyG+QMCrtZQlwAAE8FN
+mnbuJGj31PyvAhT1oDT7Z2arK/N1SmtMk3iuWdCICz5ko0gTnWZI7q5kEMeLHXci
+ogsibMaU0c/KDp05+SUjcVFHWygJAr3iSoZlhbA71a3JeXk4j2jjAoGBAMIxBson
+kXygfTALRW3QFew3kO/sWUdTc17i5U+JIHjM0z0Tijj+LPv3n/MDSquvoVRp2PPP
+KLNxeua7z2EmFrYakYC+DwFeJ/oYg7jQmJicUV/IxlGaVs/u4BXL037Pt4zfTIzw
+u5iuN86vl1attUsvJA4iSMkaFHvpRjH/oK2dAoGAQHU9DedrasufVMAOqDTD2qDD
+00ALM2lczWcqgHp6i77cgECb22277+DBUcg1P5AvdC0AiQv1/v7RciwD/MZjl+8e
+m2AId3NwmwPveO8Z2HknbqwEUJF8mvpG7OuYUFInUrBM5png+uvbT2oewSbjcqfn
+RyFrhRazSfH6qiR8pfECgYEAvKSngozWeRDuo7MtgJ5BLpxg6RF7TJo1j2AR9X3l
+B6JmzZ3z/NmoCrYJF/SRrhhTk9SJnGLXFLdhcm1NHItmhQPdzYVtqY6qfevtrDhZ
+uNJdrYE1rltqRlXDvWbqtbPW4J5nnts55MZ/WxD5aiUWg4zhMk0ww1sp13TlGqCN
+dXMCgYEA8EZZmyOV6UThLsz+8byivd/xrZF89WrBCQ6qJCUhkvA9Kvi3BxzHAhQy
+ODtq3WMdRJzTuMYxO2OgOW1UGv/bEHVOZrst+14iT5c4UKT6Z0GotsPTlZ+fAeA0
+Zv5ljcGwnQrt9vo34P9OtfFq1Ye+TZTypa1lExTUVeJfw1n7v4s=
+-----END RSA PRIVATE KEY-----
+EOF
+chmod 600 /root/.ssh/id_rsa
+cat > /root/.ssh/id_rsa.pub <<EOF
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAviX1LdTAk8dt3CgLihlfwUE1csd3uCQGBoo0ApRa5OJVrNRt5cHWF8ypOra/+yX+MFd7Le1OaoNqDdm3WKntNs0CxMpuddMR8PIjTbyKF2tiAOqcJKA2vBblScDB68fvQA7hcjeQJr6xchTNVxzvNRygCLfW9FWqKDR4FHpk1nwWgFL8nuc6issEcHjyf1Y349fy57SlSjm2tDjv5SiVRa3rsPUaLtU8S3Kona9H0vXgxYgo7xaxu/C5P0re3JoDyhvbjQdAwWcEcZm7UZk+iLYwT2SPrtwdPto+Hrwzq+cK0+fYZdUynscktrhAA0PHdRXf+KmLbbr4fMMfRLS6Nw== root@domU-12-31-39-0F-D5-91
+EOF
+cat > /root/.ssh/config <<EOF
+Host *
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+EOF
+chmod 644 /root/.ssh/id_rsa.pub
+
+#update the puppet configuration file to point to itself
+echo
+echo "[puppetd]">>/etc/puppet/puppet.conf
+echo "runinterval = $RUN_INTERVAL">>/etc/puppet/puppet.conf
+echo "server = $PUPPET_MASTER_INTERNAL_HOST" >>/etc/puppet/puppet.conf
+#For now run this in debug mode
+nohup puppet --debug --no-daemonize >/var/log/puppet/puppet.debug 2>&1
+#/etc/init.d/puppet start
