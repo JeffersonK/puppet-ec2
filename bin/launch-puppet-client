@@ -69,7 +69,7 @@ sed -e "s|%PUPPET_MASTER_INTERNAL_HOST%|$MASTER_EC2_INTERNAL_HOST|" \
     -e "s|%CONF_BRANCH%|$CLUSTER|" \
     -e "s|%RUN_INTERVAL%|$RUN_INTERVAL|" \
     $USER_DATA_FILE > $USER_DATA_FILE.client
-INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $bin/$USER_DATA_FILE.client -t $INSTANCE_TYPE -g $PUPPET_CLIENT | grep INSTANCE | awk '{print $2}'`
+INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $USER_DATA_FILE.client -t $INSTANCE_TYPE -g $PUPPET_CLIENT | grep INSTANCE | awk '{print $2}'`
 #-g mgmt-staging
 echo "Waiting for instance $INSTANCE to start"
 while true; do
