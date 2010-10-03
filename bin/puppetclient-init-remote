@@ -58,6 +58,6 @@ echo
 echo "[puppetd]">>/etc/puppet/puppet.conf
 echo "runinterval = $RUN_INTERVAL">>/etc/puppet/puppet.conf
 echo "server = $PUPPET_MASTER_INTERNAL_HOST" >>/etc/puppet/puppet.conf
+
 #For now run this in debug mode
-nohup puppet --debug --no-daemonize >/var/log/puppet/puppet.debug 2>&1
-#/etc/init.d/puppet start
+/etc/init.d/puppet start
