@@ -56,7 +56,7 @@ echo "Starting a new master in Security Group: '$PUPPET_MASTER'"
 
 #sed -e "s|%PUPPET_MASTER_INTERNAL_HOST%|$MASTER_EC2_INTERNAL_HOST|" \
 #    $bin/$USER_DATA_FILE > $bin/$USER_DATA_FILE.master
-INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $bin/$USER_DATA_FILE -t $INSTANCE_TYPE -g $PUPPET_MASTER | grep INSTANCE | awk '{print $2}'`
+INSTANCE=`ec2-run-instances $TOOL_OPTS $AMI_IMAGE -k $KEY_NAME -f $USER_DATA_FILE -t $INSTANCE_TYPE -g $PUPPET_MASTER | grep INSTANCE | awk '{print $2}'`
 #-g mgmt-staging
 echo "Waiting for instance $INSTANCE to start"
 while true; do
@@ -69,4 +69,4 @@ while true; do
     fi
     sleep 1
 done
-#rm -f $bin/$USER_DATA_FILE.master
+rm -f $USER_DATA_FILE.master
