@@ -9,7 +9,15 @@ if [ -z $1 ]; then
 fi
 
 INSTANCE_TYPE="m1.large"
-AMI_IMAGE="ami-bbfe19d2"
+#RightImage - Ubuntu (Intrepid)
+#AMI_IMAGE="ami-bbfe19d2"
+
+#Alestic 9.04
+#AMI_IMAGE="ami-b93a6bfc"
+
+#ngpipes + alestic + rightimage
+AMI_IMAGE="ami-bca652d5"
+
 KEY_NAME="root"
 bin=`dirname $0`
 USER_DATA_FILE=$bin/puppetmaster-init-remote

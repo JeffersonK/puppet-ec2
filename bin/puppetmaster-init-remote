@@ -56,7 +56,7 @@ echo "Cloning configuration..."
 git clone gituser@git.ngmoco.com:ngpipes-conf
 cd ngpipes-conf/
 git checkout origin/$CONF_BRANCH
-cp -r puppetmaster-conf/* /etc/puppet/
+#cp -r puppetmaster-conf/* /etc/puppet/
 
 #update the puppet configuration file to point to itself
 echo
